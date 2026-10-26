@@ -1,0 +1,30 @@
+name: signoff
+on:
+  workflow_dispatch:
+    inputs:
+      pr_number:
+        description: "Pull request number to sign off"
+        required: true
+permissions:
+  statuses: write
+  pull-requests: read
+  contents: read
+jobs:
+  signoff:
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Only the repository owner may sign off
+        run: |
+          if [ "$GITHUB_ACTOR" != "$GITHUB_REPOSITORY_OWNER" ]; then
+            echo "actor $GITHUB_ACTOR is not the owner"; exit 1
+          fi
+      - name: Mark the PR head commit as signed off
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR: ${{ inputs.pr_number }}
+        run: |
+          sha=$(gh api "repos/$GITHUB_REPOSITORY/pulls/$PR" --jq .head.sha)
+          gh api "repos/$GITHUB_REPOSITORY/statuses/$sha" \
+            -f state=success -f context=human-signoff \
+            -f description="signed off by $GITHUB_ACTOR on this commit"
+          echo "signed off $sha"
